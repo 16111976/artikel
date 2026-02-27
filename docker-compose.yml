@@ -1,0 +1,11 @@
+services:
+  artikeltrainer:
+    build: .
+    ports:
+      - "60443:6000"
+    volumes:
+      - artikel_data:/var/lib/derdiedas
+    restart: unless-stopped
+
+volumes:
+  artikel_data:

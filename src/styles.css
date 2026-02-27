@@ -1,0 +1,292 @@
+:root {
+  color-scheme: light;
+  --bg: #f3f3f3;
+  --panel: #ffffff;
+  --text: #1e1e1e;
+  --muted: #616161;
+  --accent: #007acc;
+  --ok: #2e7d32;
+  --bad: #c62828;
+  --border: #d4d4d4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  width: min(980px, 92vw);
+  margin: 2rem auto 4rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 8%);
+}
+
+.trainer {
+  position: relative;
+  overflow: hidden;
+}
+
+.correct-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 92%);
+  color: #0b6a0f;
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  z-index: 3;
+  text-align: center;
+  padding: 1rem;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0.2rem 0;
+}
+
+.badges {
+  margin-top: 0.6rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 0.86rem;
+  border: 1px solid #b9c8d8;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  color: #24415f;
+  background: #eef6ff;
+}
+
+.word-wrap {
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#wordDisplay {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.2;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.example {
+  min-height: 1.4rem;
+  margin-top: 0.35rem;
+  color: #2a2a2a;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 0.85rem 0.7rem;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.choice {
+  background: #f7f7f7;
+  color: #1e1e1e;
+  border: 1px solid var(--border);
+}
+
+.choice:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.choice.correct {
+  background: #eaf6ea;
+  border-color: #8fc18f;
+}
+
+.choice.wrong {
+  background: #fdecec;
+  border-color: #e3a9a9;
+}
+
+.feedback {
+  min-height: 1.5rem;
+  margin-top: 0.75rem;
+}
+
+.mnemonic {
+  margin: 0.35rem 0;
+  color: #2d5a1d;
+  font-weight: 600;
+}
+
+.tiny {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: #f8f8f8;
+}
+
+.tiny.primary {
+  background: #007acc;
+  color: white;
+  border-color: #007acc;
+}
+
+.tiny.active {
+  background: #e9f4ff;
+  border-color: #7bbcf0;
+}
+
+.auth-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.auth-grid {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+}
+
+input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.remember {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.chart-wrap {
+  margin: 0.7rem 0 1rem;
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 70px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.bar-bg {
+  height: 10px;
+  border-radius: 999px;
+  background: #ececec;
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  background: #2e7d32;
+}
+
+.bar.bad {
+  background: #c62828;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+li {
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed #d7d7d7;
+  font-size: 0.94rem;
+}
+
+.mistakes li strong {
+  color: #9c6a00;
+}
+
+.ending-groups {
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
+}
+
+.ending-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.ending-column {
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+h5 {
+  margin: 0.2rem 0;
+}
+
+@media (max-width: 620px) {
+  .app {
+    width: 95vw;
+  }
+
+  .choices {
+    grid-template-columns: 1fr;
+  }
+
+  .ending-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-row {
+    grid-template-columns: 1fr;
+  }
+}

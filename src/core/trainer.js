@@ -1,0 +1,58 @@
+export const TARGET_QUEUE = 30;
+
+export function pickWeightedWord(words, statsByWord, random = Math.random) {
+  if (!words?.length) return null;
+
+  const weighted = words.map((entry) => {
+    const wordStat = statsByWord?.[entry.word] || { wrong: 0, asked: 0 };
+    const effectiveWrong = wordStat.todoActive === false ? 0 : wordStat.wrong || 0;
+    const weight = 1 + effectiveWrong * 3 + Math.max(0, 3 - (wordStat.asked || 0));
+    return { entry, weight };
+  });
+
+  const totalWeight = weighted.reduce((sum, row) => sum + row.weight, 0);
+  let ticket = random() * totalWeight;
+
+  for (const row of weighted) {
+    ticket -= row.weight;
+    if (ticket <= 0) return row.entry;
+  }
+
+  return weighted[weighted.length - 1].entry;
+}
+
+export function fillQueue(queue, words, statsByWord, target = TARGET_QUEUE, random = Math.random) {
+  const nextQueue = [...queue];
+  const inQueue = new Set(nextQueue.map((item) => item.word.toLowerCase()));
+  let guard = 0;
+
+  while (nextQueue.length < target && guard < target * 20) {
+    guard += 1;
+    let candidate = pickWeightedWord(words, statsByWord, random);
+    if (!candidate) break;
+
+    if (inQueue.has(candidate.word.toLowerCase()) && inQueue.size < words.length) {
+      candidate = words.find((word) => !inQueue.has(word.word.toLowerCase())) || candidate;
+    }
+
+    nextQueue.push(candidate);
+    inQueue.add(candidate.word.toLowerCase());
+  }
+
+  return nextQueue;
+}
+
+export function autoMnemonic(word) {
+  const endingHint = word.ending ? `Achte auf die Endung ${word.ending}.` : "";
+  if (word.article === "die") return `${endingHint} Stell dir eine Diva vor: DIE ${word.word}.`.trim();
+  if (word.article === "der") return `${endingHint} Stell dir einen Ritter vor: DER ${word.word}.`.trim();
+  return `${endingHint} Stell dir ein Kind vor: DAS ${word.word}.`.trim();
+}
+
+export function resolveMnemonic(word, byWord, curatedMnemonics) {
+  const wordStat = byWord?.[word.word];
+  if (wordStat?.mnemonic) return `Eselsbrücke: ${wordStat.mnemonic}`;
+  const curated = curatedMnemonics.get(word.word.toLowerCase());
+  if (curated) return `Eselsbrücke: ${curated}`;
+  return "";
+}
