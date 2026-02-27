@@ -1,12 +1,23 @@
 export const TARGET_QUEUE = 30;
 
-export function pickWeightedWord(words, statsByWord, random = Math.random) {
+export function pickWeightedWord(words, statsByWord, globalIndex = 0, random = Math.random) {
   if (!words?.length) return null;
 
+  const COOLDOWN_THRESHOLD = 1000;
+
   const weighted = words.map((entry) => {
-    const wordStat = statsByWord?.[entry.word] || { wrong: 0, asked: 0 };
+    const wordStat = statsByWord?.[entry.word] || { wrong: 0, asked: 0, lastAskedGlobalIndex: -1 };
     const effectiveWrong = wordStat.todoActive === false ? 0 : wordStat.wrong || 0;
-    const weight = 1 + effectiveWrong * 3 + Math.max(0, 3 - (wordStat.asked || 0));
+    let weight = 1 + effectiveWrong * 3 + Math.max(0, 3 - (wordStat.asked || 0));
+
+    // Wenn richtig beantwortet und weniger als 1000 Wörter her, stark reduzieren
+    if (wordStat.correct > 0 && wordStat.lastAskedGlobalIndex >= 0) {
+      const questionsSince = globalIndex - wordStat.lastAskedGlobalIndex;
+      if (questionsSince < COOLDOWN_THRESHOLD) {
+        weight = weight * 0.01; // Stark reduzierte Chance
+      }
+    }
+
     return { entry, weight };
   });
 
@@ -21,14 +32,14 @@ export function pickWeightedWord(words, statsByWord, random = Math.random) {
   return weighted[weighted.length - 1].entry;
 }
 
-export function fillQueue(queue, words, statsByWord, target = TARGET_QUEUE, random = Math.random) {
+export function fillQueue(queue, words, statsByWord, globalIndex = 0, target = TARGET_QUEUE, random = Math.random) {
   const nextQueue = [...queue];
   const inQueue = new Set(nextQueue.map((item) => item.word.toLowerCase()));
   let guard = 0;
 
   while (nextQueue.length < target && guard < target * 20) {
     guard += 1;
-    let candidate = pickWeightedWord(words, statsByWord, random);
+    let candidate = pickWeightedWord(words, statsByWord, globalIndex, random);
     if (!candidate) break;
 
     if (inQueue.has(candidate.word.toLowerCase()) && inQueue.size < words.length) {

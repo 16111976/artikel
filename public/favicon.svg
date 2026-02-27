@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f3f3f3;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="192" height="192" fill="url(#grad)" rx="20"/>
+  
+  <!-- Three interlocking D's with 3D effect -->
+  
+  <!-- D for "der" (blue) - Left -->
+  <g filter="url(#shadow)">
+    <path d="M 40 60 L 40 100 L 60 100 Q 85 100 85 80 Q 85 60 60 60 Z" 
+          fill="#3b82f6" stroke="#2563eb" stroke-width="3"/>
+    <path d="M 42 62 L 42 98 L 60 98 Q 83 98 83 80 Q 83 62 60 62 Z" 
+          fill="#60a5fa" opacity="0.5"/>
+  </g>
+  
+  <!-- D for "die" (pink) - Center/Top -->
+  <g filter="url(#shadow)">
+    <path d="M 75 50 L 75 90 L 95 90 Q 120 90 120 70 Q 120 50 95 50 Z" 
+          fill="#ec4899" stroke="#db2777" stroke-width="3"/>
+    <path d="M 77 52 L 77 88 L 95 88 Q 118 88 118 70 Q 118 52 95 52 Z" 
+          fill="#f9a8d4" opacity="0.5"/>
+  </g>
+  
+  <!-- D for "das" (orange) - Right -->
+  <g filter="url(#shadow)">
+    <path d="M 105 60 L 105 100 L 125 100 Q 150 100 150 80 Q 150 60 125 60 Z" 
+          fill="#f97316" stroke="#ea580c" stroke-width="3"/>
+    <path d="M 107 62 L 107 98 L 125 98 Q 148 98 148 80 Q 148 62 125 62 Z" 
+          fill="#fb923c" opacity="0.5"/>
+  </g>
+</svg>

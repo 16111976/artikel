@@ -175,6 +175,17 @@ button {
   border-color: #7bbcf0;
 }
 
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.auth-logo img {
+  width: 120px;
+  height: 120px;
+}
+
 .auth-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -273,6 +284,17 @@ h5 {
   margin: 0.2rem 0;
 }
 
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+}
 @media (max-width: 620px) {
   .app {
     width: 95vw;

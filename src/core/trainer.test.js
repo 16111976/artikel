@@ -18,7 +18,7 @@ describe("pickWeightedWord", () => {
       Sonne: { wrong: 6, asked: 1 },
       Auto: { wrong: 0, asked: 10 }
     };
-    const selected = pickWeightedWord(words, stats, () => 0.5);
+    const selected = pickWeightedWord(words, stats, 0, () => 0.5);
     expect(selected.word).toBe("Sonne");
   });
 
@@ -28,19 +28,19 @@ describe("pickWeightedWord", () => {
       Sonne: { wrong: 8, asked: 10, todoActive: false },
       Auto: { wrong: 0, asked: 0 }
     };
-    const selected = pickWeightedWord(words, stats, () => 0.95);
+    const selected = pickWeightedWord(words, stats, 0, () => 0.95);
     expect(selected.word).toBe("Auto");
   });
 });
 
 describe("fillQueue", () => {
   it("füllt bis zur zielgröße", () => {
-    const queue = fillQueue([], words, {}, 5, () => 0.2);
+    const queue = fillQueue([], words, {}, 0, 5, () => 0.2);
     expect(queue.length).toBe(5);
   });
 
   it("behält vorhandene queue-elemente", () => {
-    const queue = fillQueue([words[0]], words, {}, 3, () => 0.8);
+    const queue = fillQueue([words[0]], words, {}, 0, 3, () => 0.8);
     expect(queue[0].word).toBe("Baum");
     expect(queue.length).toBe(3);
   });

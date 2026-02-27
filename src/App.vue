@@ -236,7 +236,7 @@ async function loadData() {
 }
 
 function refillQueue() {
-  queue.value = fillQueue(queue.value, filteredWords.value, stats.value.byWord, TARGET_QUEUE);
+  queue.value = fillQueue(queue.value, filteredWords.value, stats.value.byWord, stats.value.globalIndex || 0, TARGET_QUEUE);
 }
 
 async function nextWord() {
@@ -323,13 +323,8 @@ function normalizeDifficulty(raw, idx) {
 <template>
   <main class="app">
     <header class="card">
-      <h1>DerDieDas</h1>
-      <p>Ein Wort, drei Artikel, direktes Feedback.</p>
+      <h1 class="brand"><img class="brand-logo" src="/favicon.svg" alt="DerDieDas Logo" />DerDieDas</h1>
       <div class="badges">
-        <span class="badge" v-if="authUser">User: {{ authUser.name }} ({{ authUser.email }})</span>
-        <span class="badge">{{ onlineLabel }}</span>
-        <span class="badge">{{ queueLabel }}</span>
-        <span class="badge">Level: {{ selectedDifficulty }}</span>
         <button v-if="authUser" class="tiny" @click="onLogout">Abmelden</button>
       </div>
     </header>

@@ -6,7 +6,8 @@ export function createInitialStats() {
     byDay: {},
     byEnding: {},
     byWord: {},
-    history: []
+    history: [],
+    globalIndex: 0
   };
 }
 
@@ -31,12 +32,16 @@ export function updateStats(stats, word, selectedArticle, correct, day) {
       mnemonic: "",
       todoActive: false,
       todoWrongCount: 0,
-      todoRecoveryCorrect: 0
+      todoRecoveryCorrect: 0,
+      lastAskedGlobalIndex: -1
     })
   };
 
   byWord.asked += 1;
+  byWord.lastAskedGlobalIndex = stats.globalIndex || 0;
   byDay.total += 1;
+  
+  next.globalIndex = (stats.globalIndex || 0) + 1;
 
   if (correct) {
     byArticle.correct += 1;
