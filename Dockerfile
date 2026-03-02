@@ -5,6 +5,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# DWDS über Nginx-Proxy (/api/dwds) nutzen, damit im Container kein CORS entsteht
+ARG VITE_DWDS_PROXY=/api/dwds
+ENV VITE_DWDS_PROXY=$VITE_DWDS_PROXY
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime

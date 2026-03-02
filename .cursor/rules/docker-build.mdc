@@ -1,0 +1,14 @@
+---
+description: Nach Änderungen immer mit Docker neu bauen (--build) für lokale Tests
+alwaysApply: true
+---
+
+# Docker-Testworkflow
+
+- **Tests laufen mit Docker:** Das Projekt wird lokal mit Docker getestet (nicht nur `npm run dev`).
+- **Nach Code- oder Konfigurationsänderungen:** Immer den Container neu bauen und starten:
+  ```bash
+  npm run docker:up
+  ```
+  bzw. `docker-compose down --remove-orphans && docker-compose up -d --build`
+- Nach Änderungen an `Dockerfile`, `docker-compose.yml`, `docker/`, Quellcode oder Build-Konfiguration diesen Befehl ausführen, damit die App unter https://localhost:60443 mit aktuellem Stand läuft.

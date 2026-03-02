@@ -32,9 +32,16 @@ export function pickWeightedWord(words, statsByWord, globalIndex = 0, random = M
   return weighted[weighted.length - 1].entry;
 }
 
-export function fillQueue(queue, words, statsByWord, globalIndex = 0, target = TARGET_QUEUE, random = Math.random) {
+/**
+ * @param {object} [options] - optional
+ * @param {string} [options.excludeWord] - Wort (z. B. aktuell angezeigtes) nicht in die Queue aufnehmen
+ */
+export function fillQueue(queue, words, statsByWord, globalIndex = 0, target = TARGET_QUEUE, random = Math.random, options = {}) {
   const nextQueue = [...queue];
   const inQueue = new Set(nextQueue.map((item) => item.word.toLowerCase()));
+  const exclude = (options.excludeWord || "").trim().toLowerCase();
+  if (exclude) inQueue.add(exclude);
+
   let guard = 0;
 
   while (nextQueue.length < target && guard < target * 20) {
@@ -42,8 +49,14 @@ export function fillQueue(queue, words, statsByWord, globalIndex = 0, target = T
     let candidate = pickWeightedWord(words, statsByWord, globalIndex, random);
     if (!candidate) break;
 
-    if (inQueue.has(candidate.word.toLowerCase()) && inQueue.size < words.length) {
-      candidate = words.find((word) => !inQueue.has(word.word.toLowerCase())) || candidate;
+    if (inQueue.has(candidate.word.toLowerCase())) {
+      const next = words.find((w) => !inQueue.has(w.word.toLowerCase()));
+      if (next) candidate = next;
+    }
+    // Ausgeschlossenes Wort (z. B. aktuell angezeigt) nie aufnehmen, ggf. anderes wiederholen
+    if (exclude && candidate.word.toLowerCase() === exclude) {
+      const other = words.find((w) => w.word.toLowerCase() !== exclude);
+      if (other) candidate = other;
     }
 
     nextQueue.push(candidate);

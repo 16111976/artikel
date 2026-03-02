@@ -44,6 +44,12 @@ describe("fillQueue", () => {
     expect(queue[0].word).toBe("Baum");
     expect(queue.length).toBe(3);
   });
+
+  it("schließt excludeWord aus (kein doppeltes aktuelles Wort)", () => {
+    const queue = fillQueue([], words, {}, 0, 5, Math.random, { excludeWord: "Baum" });
+    const hasBaum = queue.some((e) => e.word.toLowerCase() === "baum");
+    expect(hasBaum).toBe(false);
+  });
 });
 
 describe("mnemonic helpers", () => {

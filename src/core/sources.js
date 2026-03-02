@@ -1,5 +1,34 @@
-const SOURCE_CACHE_KEY = "artikeltrainer.source-cache.v1";
+const SOURCE_CACHE_KEY = "artikeltrainer.source-cache.v3";
 const SOURCE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+
+const DWDS_BASE =
+  typeof import.meta !== "undefined" && import.meta.env?.VITE_DWDS_PROXY
+    ? import.meta.env.VITE_DWDS_PROXY.replace(/\/$/, "")
+    : "https://www.dwds.de";
+
+function decodeHtmlEntities(text) {
+  if (!text) return "";
+  return text
+    .replace(/&middot;/gi, "·")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .trim();
+}
+
+/** Siebt Phrasen-Listen und Platzhalter aus (nur echte Sätze). */
+function isPhraseListOrPlaceholder(text) {
+  const t = text.trim();
+  if (/___/.test(t)) return true;
+  const dots = (t.match(/ · /g) || []).length;
+  if (dots >= 2) return true;
+  if (/^[^.]* · [^.]* · /.test(t)) return true;
+  return false;
+}
 
 const sources = {
   wiktionary: {
@@ -13,17 +42,29 @@ const sources = {
   },
   dwds: {
     name: "DWDS",
-    buildUrl: (word) => `https://www.dwds.de/wb/${encodeURIComponent(word)}`,
-    parse: async (res) => {
+    buildUrl: (word) => `${DWDS_BASE}/wb/${encodeURIComponent(word)}`,
+    parse: async (res, word) => {
       const html = await res.text();
-      const plain = html
+      let plain = html
         .replace(/<script[\s\S]*?<\/script>/gi, " ")
         .replace(/<style[\s\S]*?<\/style>/gi, " ")
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-      const sentence = plain.match(/[^.!?]{15,140}[.!?]/)?.[0]?.trim();
-      return sentence ? { example: sentence, score: 70, source: "DWDS" } : null;
+      plain = decodeHtmlEntities(plain);
+      const boilerplate =
+        /JavaScript|aktiviert sein|Etymologie|Synonyme|Bedeutung.*Beispiele|vollen Funktionsumfang|DWDS\s*$/i;
+      const candidates = plain.match(/[^.!?]{15,180}[.!?]/g) || [];
+      const wordLower = (word || "").toLowerCase();
+      const sentence = candidates.find((s) => {
+        const t = decodeHtmlEntities(s).trim();
+        if (boilerplate.test(t)) return false;
+        if (isPhraseListOrPlaceholder(t)) return false;
+        if (t.length < 20 || t.length > 160) return false;
+        return wordLower ? t.toLowerCase().includes(wordLower) : true;
+      });
+      const cleaned = sentence ? decodeHtmlEntities(sentence).trim() : null;
+      return cleaned ? { example: cleaned, score: 70, source: "DWDS" } : null;
     }
   }
 };
@@ -42,10 +83,16 @@ export async function enrichWordFromSources(word, fetchFn = fetch, storage = loc
   try {
     const response = await fetchWithTimeout(fetchFn, chosen.buildUrl(word), 1600);
     if (response.ok) {
-      best = await chosen.parse(response);
+      best = await chosen.parse(response, word);
+    } else {
+      // Body verbrauchen (z. B. bei 404), damit keine Warnung entsteht
+      await response.text().catch(() => {});
     }
   } catch {
-    best = null;
+    // CORS oder Netzwerkfehler (z. B. DWDS von localhost) – Fallback auf Wiktionary
+    if (mode === "dwds") {
+      best = await trySource(word, sources.wiktionary, fetchFn);
+    }
   }
 
   if (best) {
@@ -54,6 +101,16 @@ export async function enrichWordFromSources(word, fetchFn = fetch, storage = loc
   }
 
   return best;
+}
+
+async function trySource(word, source, fetchFn) {
+  try {
+    const response = await fetchWithTimeout(fetchFn, source.buildUrl(word), 1600);
+    if (!response.ok) return null;
+    return await source.parse(response, word);
+  } catch {
+    return null;
+  }
 }
 
 export function loadSourceCache(storage = localStorage) {

@@ -5,6 +5,20 @@ services:
       - "60443:6000"
     volumes:
       - artikel_data:/var/lib/derdiedas
+    depends_on:
+      - derdiedas-api
+    restart: unless-stopped
+
+  derdiedas-api:
+    build: ./server
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-host.docker.internal}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root}
+      MYSQL_DATABASE: derdiedas
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:

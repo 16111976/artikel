@@ -9,6 +9,12 @@ import {
   requestPasswordReset,
   resetPassword
 } from "./core/auth";
+import {
+  assignDifficultyByRank,
+  fetchWordsFrequencies,
+  frequencyToDifficulty,
+  loadFrequencyCache
+} from "./core/frequency";
 import { detectEnding, parseMarkdownTable } from "./core/parser";
 import { enrichWordFromSources } from "./core/sources";
 import { loadStatsForUser, resetLegacyAndSharedStatsOnce, saveStatsForUser } from "./core/storage";
@@ -17,7 +23,19 @@ import { fillQueue, resolveMnemonic, TARGET_QUEUE } from "./core/trainer";
 import { registerPwa } from "./pwa/registerPwa";
 
 const WORDS_URL = "/data/woerter.md";
+const WORDS_API_URL = "/api/words";
 const MNEMONICS_URL = "/data/eselsbruecken.md";
+const PRELOAD_WORDS_LIMIT = 200;
+const DIFFICULTY_LEVELS = ["leicht", "mittel", "schwer", "sehrschwer"];
+
+function shuffleArray(arr, random = Math.random) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 const fallbackWords = [
   { word: "Baum", article: "der", ending: "-aum", example: "Der Baum ist hoch." },
@@ -40,6 +58,7 @@ const correctOverlayText = ref("");
 const statsView = ref("list");
 const selectedDifficulty = ref("alle");
 const exampleSourceMode = ref("wiktionary");
+const dbStats = ref({ total: null, byArticle: { der: 0, die: 0, das: 0 } });
 
 const authUser = ref(getCurrentUser());
 const authMode = ref("login");
@@ -63,6 +82,13 @@ if (remembered) {
 const queueLabel = computed(() => `Queue: ${queue.value.length}/${TARGET_QUEUE}`);
 const onlineLabel = computed(() => `Status: ${isOnline.value ? "online" : "offline"}`);
 const endingLabel = computed(() => `Endung: ${current.value?.ending || "(unbekannt)"}`);
+const currentWordDifficultyStats = computed(() => {
+  const w = current.value;
+  if (!w) return "";
+  const parts = [`Schwierigkeit: ${w.difficulty || "—"}`];
+  if (typeof w.frequency === "number") parts.push(`Häufigkeit (DWDS): ${w.frequency}/6`);
+  return parts.join(" · ");
+});
 const displayedExample = computed(() => {
   if (!current.value) return "";
   if (selectedArticle.value) return dynamicExample.value;
@@ -78,6 +104,7 @@ const filteredWords = computed(() => {
 });
 
 const statsByArticle = computed(() => ["der", "die", "das"].map((a) => ({ article: a, ...(stats.value.byArticle[a] || { correct: 0, wrong: 0 }) })));
+const wordsDurchgegangen = computed(() => Object.keys(stats.value.byWord || {}).length);
 const statsByDay = computed(() =>
   Object.entries(stats.value.byDay)
     .sort((a, b) => b[0].localeCompare(a[0]))
@@ -134,6 +161,18 @@ const endingChart = computed(() => {
   return flattened.map((r) => ({ ...r, width: Math.round((r.wrong / maxWrong) * 100) }));
 });
 
+async function fetchDbStats() {
+  try {
+    const res = await fetch("/api/words/stats", { cache: "no-cache" });
+    if (res.ok) {
+      const data = await res.json();
+      dbStats.value = { total: data.total ?? null, byArticle: data.byArticle ?? { der: 0, die: 0, das: 0 } };
+    }
+  } catch {
+    dbStats.value = { total: null, byArticle: { der: 0, die: 0, das: 0 } };
+  }
+}
+
 onMounted(async () => {
   resetLegacyAndSharedStatsOnce();
   window.addEventListener("online", syncOnlineStatus);
@@ -145,6 +184,7 @@ onMounted(async () => {
     refillQueue();
     await nextWord();
   }
+  fetchDbStats();
 });
 
 watch([selectedDifficulty, exampleSourceMode], async () => {
@@ -207,25 +247,97 @@ function onLogout() {
   queue.value = [];
 }
 
-async function loadData() {
+async function onResetStats() {
+  if (!authUser.value) return;
+  stats.value = createInitialStats();
+  saveStatsForUser(authUser.value, stats.value);
+  current.value = null;
+  queue.value = [];
+  feedback.value = "Statistik zurückgesetzt. Starte neu.";
+  await nextWord();
+}
+
+async function loadWordsFromApiOrFallback() {
   try {
-    const [wordsText, mnemonicText] = await Promise.all([fetchText(WORDS_URL), fetchText(MNEMONICS_URL)]);
-    words.value = parseMarkdownTable(wordsText)
-      .map((row, idx) => ({
-        id: String(idx + 1),
+    const res = await fetch(`${WORDS_API_URL}?limit=5000`, { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error("Empty");
+    return data
+      .filter((e) => e.word && ["der", "die", "das"].includes(e.article))
+      .map((e) => ({
+        word: String(e.word).trim(),
+        article: e.article,
+        ending: e.ending || detectEnding(e.word || ""),
+        example: e.example || "",
+        difficultyFromFile: null,
+        ...(typeof e.frequency === "number" && { frequency: e.frequency }),
+        ...(e.mnemonic && { mnemonic: String(e.mnemonic).trim() })
+      }));
+  } catch {
+    const wordsText = await fetchText(WORDS_URL);
+    return parseMarkdownTable(wordsText)
+      .map((row) => ({
         word: row.Wort?.trim(),
         article: row.Artikel?.trim(),
         ending: row.Endung?.trim() || detectEnding(row.Wort?.trim() || ""),
         example: row.Beispielsatz?.trim() || "",
-        difficulty: normalizeDifficulty(row.Schwierigkeitsgrad, idx)
+        difficultyFromFile: normalizeDifficulty(row.Schwierigkeitsgrad)
       }))
       .filter((entry) => entry.word && ["der", "die", "das"].includes(entry.article));
+  }
+}
 
-    curatedMnemonics.value = new Map(
+async function loadData() {
+  try {
+    let list = await loadWordsFromApiOrFallback();
+    list = shuffleArray(list);
+    if (list.length > PRELOAD_WORDS_LIMIT) list = list.slice(0, PRELOAD_WORDS_LIMIT);
+
+    const freqCache = loadFrequencyCache(localStorage);
+    const withFreq = list.map((entry, idx) => {
+      const { difficultyFromFile, ...rest } = entry;
+      const freq = entry.frequency ?? freqCache[entry.word?.toLowerCase()]?.frequency;
+      return {
+        ...rest,
+        id: String(idx + 1),
+        difficultyFromFile,
+        ...(typeof freq === "number" && { frequency: freq })
+      };
+    });
+    const byRank = assignDifficultyByRank(withFreq);
+    words.value = byRank.map((w, i) => {
+      const { difficultyFromFile, ...rest } = w;
+      return {
+        ...rest,
+        id: String(i + 1),
+        difficulty: difficultyFromFile ?? w.difficulty ?? DIFFICULTY_LEVELS[i % DIFFICULTY_LEVELS.length]
+      };
+    });
+
+    const mnemonicText = await fetchText(MNEMONICS_URL).catch(() => "");
+    const fileMnemonics = new Map(
       parseMarkdownTable(mnemonicText)
         .filter((row) => row.Wort && row.Eselsbruecke)
         .map((row) => [row.Wort.trim().toLowerCase(), row.Eselsbruecke.trim()])
     );
+    const apiMnemonics = new Map(
+      list.filter((e) => e.mnemonic).map((e) => [e.word?.toLowerCase(), e.mnemonic])
+    );
+    curatedMnemonics.value = new Map([...fileMnemonics, ...apiMnemonics]);
+
+    // Frequenzen nachladen (DWDS-API), dann Schwierigkeit relativ verteilen
+    fetchWordsFrequencies(words.value, { fetchFn: fetch, storage: localStorage })
+      .then((freqMap) => {
+        const hasNew = Object.keys(freqMap).length > 0;
+        if (!hasNew) return;
+        const withFreq = words.value.map((w) => ({
+          ...w,
+          ...(typeof freqMap[w.word.toLowerCase()] === "number" && { frequency: freqMap[w.word.toLowerCase()] })
+        }));
+        words.value = assignDifficultyByRank(withFreq);
+      })
+      .catch(() => {});
   } catch {
     words.value = fallbackWords;
     if (!stats.value?.byArticle) stats.value = createInitialStats();
@@ -236,7 +348,15 @@ async function loadData() {
 }
 
 function refillQueue() {
-  queue.value = fillQueue(queue.value, filteredWords.value, stats.value.byWord, stats.value.globalIndex || 0, TARGET_QUEUE);
+  queue.value = fillQueue(
+    queue.value,
+    filteredWords.value,
+    stats.value.byWord,
+    stats.value.globalIndex || 0,
+    TARGET_QUEUE,
+    Math.random,
+    { excludeWord: current.value?.word }
+  );
 }
 
 async function nextWord() {
@@ -309,13 +429,12 @@ function maskArticleInExample(example, article) {
   return example.replace(regex, "___");
 }
 
-function normalizeDifficulty(raw, idx) {
+// Schwierigkeit wird nach Shuffle per Round-Robin zugewiesen (siehe loadData),
+// damit jede Stufe alle Artikel enthält. Diese Funktion bleibt für spätere optionale Spalte „Schwierigkeitsgrad“.
+function normalizeDifficulty(raw) {
   const normalized = String(raw || "").trim().toLowerCase();
-  if (["leicht", "mittel", "schwer", "sehrschwer"].includes(normalized)) return normalized;
-  if (idx < 18) return "leicht";
-  if (idx < 38) return "mittel";
-  if (idx < 52) return "schwer";
-  return "sehrschwer";
+  if (DIFFICULTY_LEVELS.includes(normalized)) return normalized;
+  return null;
 }
 
 </script>
@@ -379,6 +498,7 @@ function normalizeDifficulty(raw, idx) {
         <p class="label">Wort</p>
         <h2 id="wordDisplay">{{ current?.word || "Keine Wörter verfügbar" }}</h2>
         <p class="muted">{{ endingLabel }}</p>
+        <p v-if="currentWordDifficultyStats" class="muted word-stats">{{ currentWordDifficultyStats }}</p>
         <p v-if="currentMnemonic" class="mnemonic">{{ currentMnemonic }}</p>
         <p class="example">{{ displayedExample }}</p>
         <p class="muted">{{ sourceHint }}</p>
@@ -395,9 +515,17 @@ function normalizeDifficulty(raw, idx) {
 
     <section v-if="authUser" class="card stats">
       <h3>Statistik</h3>
+      <div class="stats-summary">
+        <p><strong>Wörter in der DB:</strong> {{ dbStats.total != null ? dbStats.total.toLocaleString('de-DE') : '—' }}</p>
+        <p><strong>Durchgegangen:</strong> {{ wordsDurchgegangen }} (einmalig abgefragt)</p>
+        <p class="muted">In der DB: der {{ (dbStats.byArticle?.der ?? 0).toLocaleString('de-DE') }} · die {{ (dbStats.byArticle?.die ?? 0).toLocaleString('de-DE') }} · das {{ (dbStats.byArticle?.das ?? 0).toLocaleString('de-DE') }}</p>
+      </div>
       <div class="auth-tabs">
         <button class="tiny" :class="{ active: statsView === 'list' }" @click="statsView = 'list'">Liste</button>
         <button class="tiny" :class="{ active: statsView === 'graph' }" @click="statsView = 'graph'">Grafik</button>
+      </div>
+      <div class="auth-tabs">
+        <button class="tiny" @click="onResetStats">Statistik zurücksetzen</button>
       </div>
 
       <div v-if="statsView === 'graph'" class="chart-wrap">
