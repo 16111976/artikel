@@ -98,6 +98,10 @@ p {
   line-height: 1.2;
 }
 
+.word-clickable {
+  cursor: pointer;
+}
+
 .muted {
   color: var(--muted);
   font-size: 0.9rem;
@@ -154,6 +158,69 @@ button {
   margin: 0.35rem 0;
   color: #2d5a1d;
   font-weight: 600;
+}
+
+.word-details-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.word-details-modal {
+  width: min(520px, 100% - 2rem);
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 22%);
+  padding: 1rem 1.1rem 0.9rem;
+  text-align: left;
+}
+
+.word-details-modal h3 {
+  margin-top: 0.1rem;
+  margin-bottom: 0.4rem;
+}
+
+.word-details-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.word-details-label:first-of-type {
+  margin-top: 0.4rem;
+}
+
+.word-details-meanings {
+  min-height: 6rem;
+  padding: 0.6rem 0.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  white-space: pre-line;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.word-details-example {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #2a2a2a;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.8rem;
+  padding-top: 0.4rem;
 }
 
 .tiny {

@@ -16,7 +16,7 @@ import {
   loadFrequencyCache
 } from "./core/frequency";
 import { detectEnding, parseMarkdownTable } from "./core/parser";
-import { enrichWordFromSources } from "./core/sources";
+import { enrichWordFromSources, fetchDwdsMeaning } from "./core/sources";
 import { loadStatsForUser, resetLegacyAndSharedStatsOnce, saveStatsForUser } from "./core/storage";
 import { createInitialStats, updateStats } from "./core/stats";
 import { fillQueue, resolveMnemonic, TARGET_QUEUE } from "./core/trainer";
@@ -59,6 +59,10 @@ const statsView = ref("list");
 const selectedDifficulty = ref("alle");
 const exampleSourceMode = ref("wiktionary");
 const dbStats = ref({ total: null, byArticle: { der: 0, die: 0, das: 0 } });
+const showWordDetails = ref(false);
+const wordDetailsLoading = ref(false);
+const wordDetailsMeanings = ref("");
+const wordDetailsExample = ref("");
 
 const authUser = ref(getCurrentUser());
 const authMode = ref("login");
@@ -370,6 +374,10 @@ async function nextWord() {
   sourceHint.value = "";
   dynamicExample.value = current.value?.example || "";
   feedback.value = "Wähle den passenden Artikel.";
+  showWordDetails.value = false;
+  wordDetailsMeanings.value = "";
+  wordDetailsExample.value = "";
+  wordDetailsLoading.value = false;
 
   if (current.value?.word) {
     const enrichment = await enrichWordFromSources(current.value.word, fetch, localStorage, exampleSourceMode.value);
@@ -378,6 +386,35 @@ async function nextWord() {
       sourceHint.value = `Beispielquelle: ${enrichment.source}`;
     }
   }
+}
+
+async function onShowWordDetails() {
+  if (!current.value?.word) return;
+  showWordDetails.value = true;
+
+  // Schon geladen und im Speicher – nicht erneut abrufen
+  if ((wordDetailsMeanings.value || wordDetailsExample.value) && !wordDetailsLoading.value) return;
+
+  wordDetailsLoading.value = true;
+  wordDetailsMeanings.value = "";
+  wordDetailsExample.value = "";
+  try {
+    const result = await fetchDwdsMeaning(current.value.word, fetch);
+    if (result) {
+      wordDetailsMeanings.value = result.meanings || "";
+      wordDetailsExample.value = result.example || "";
+    } else {
+      wordDetailsMeanings.value = "Keine Bedeutungen gefunden.";
+    }
+  } catch {
+    wordDetailsMeanings.value = "Fehler beim Laden der Bedeutungen.";
+  } finally {
+    wordDetailsLoading.value = false;
+  }
+}
+
+function closeWordDetails() {
+  showWordDetails.value = false;
 }
 
 function chooseArticle(article) {
@@ -483,6 +520,21 @@ function normalizeDifficulty(raw) {
 
     <section v-if="authUser" class="card trainer" aria-live="polite">
       <div v-if="showCorrectOverlay" class="correct-overlay">{{ correctOverlayText }}</div>
+      <div v-if="showWordDetails" class="word-details-backdrop" @click.self="closeWordDetails">
+        <div class="word-details-modal">
+          <h3>{{ current?.word }}</h3>
+          <p v-if="wordDetailsLoading" class="muted">Lade von DWDS …</p>
+          <template v-else>
+            <p class="word-details-label">Bedeutungsübersicht</p>
+            <div class="word-details-meanings">{{ wordDetailsMeanings || "—" }}</div>
+            <p class="word-details-label">Beispiel</p>
+            <p class="word-details-example">{{ wordDetailsExample || "—" }}</p>
+          </template>
+          <div class="modal-actions">
+            <button class="tiny" type="button" @click="closeWordDetails">Schließen</button>
+          </div>
+        </div>
+      </div>
       <div class="auth-tabs">
         <button class="tiny" :class="{ active: selectedDifficulty === 'alle' }" @click="selectedDifficulty = 'alle'">alle</button>
         <button class="tiny" :class="{ active: selectedDifficulty === 'leicht' }" @click="selectedDifficulty = 'leicht'">leicht</button>
@@ -496,7 +548,9 @@ function normalizeDifficulty(raw) {
       </div>
       <div class="word-wrap">
         <p class="label">Wort</p>
-        <h2 id="wordDisplay">{{ current?.word || "Keine Wörter verfügbar" }}</h2>
+        <h2 id="wordDisplay" class="word-clickable" @click="onShowWordDetails">
+          {{ current?.word || "Keine Wörter verfügbar" }}
+        </h2>
         <p class="muted">{{ endingLabel }}</p>
         <p v-if="currentWordDifficultyStats" class="muted word-stats">{{ currentWordDifficultyStats }}</p>
         <p v-if="currentMnemonic" class="mnemonic">{{ currentMnemonic }}</p>
